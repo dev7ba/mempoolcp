@@ -1,7 +1,12 @@
 [package]
-name = "mempool_query"
+name = "mempoolcp"
+authors = ["dev7ba <dev7ba@protonmail.com>"]
 version = "0.1.0"
+description = "Copy bitcoin transactions from one source node to a target"
 edition = "2021"
+keywords = ["bitcoin", "mempool"]
+categories = ["command-line-utilities","cryptography::cryptocurrencies"]
+license = "MIT OR Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,3 +14,8 @@ edition = "2021"
 # bitcoincore-rpc = "0.16.0"
 
 bitcoincore-rpc = {path="../rust-bitcoincore-rpc/client"}
+serde = { version = "1", features = [ "derive" ] }
+anyhow = "1.0"
+clap = { version = "4.1.4", features = ["derive"] }
+confy = "0.5.1"
+rpassword = "7.2.0"
