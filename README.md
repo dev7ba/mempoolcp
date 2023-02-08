@@ -4,6 +4,8 @@
 
 Mempoolpc takes into account the dependencies between transactions and the fact that you can't send a child before a parent, or a parent before a grandparent... because otherwise, the sent transactions could be denied.
 
+It has to be aware that the max allowed dependencies can be higher than 25
+
 It has two modes of operation: a faster one using more memory and another slower one using less. The faster one uses getrawmempool_verbose (a heavy call that uses a lot of memory if there are many txs). and then getrawtransaction + sendrawTransaction for each transaction. The slower mode uses getrawmempool (without verbose), then getmempoolentry + getrawtransaction + sendrawTransaction for each transaction.
 
 Configuration is done via the command line (Reckless mode) or via mempoolcp.conf in a file (to avoid using passwords in the shell). It can also actively ask for the user and password.
@@ -13,3 +15,5 @@ In the future, it should also take into account transactions that have arrived a
 It has an option to choose network (ports): mainnet, testnet, regtest...
 
 Nothing of this is implemented yet but cmd parsing and validating.
+
+
