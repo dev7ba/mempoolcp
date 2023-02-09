@@ -1,13 +1,14 @@
 extern crate bitcoincore_rpc;
 extern crate confy;
-
-// use bitcoincore_rpc::jsonrpc::client;
+use anyhow::{anyhow, Context, Result};
 use bitcoincore_rpc::{bitcoin::Txid, Auth, Client, RpcApi};
-
-use anyhow::Context;
-use anyhow::Result;
 use config::Config;
+use indicatif::ParallelProgressIterator;
+use indicatif::ProgressStyle;
+use std::sync::{Arc, Mutex};
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::sync::atomic::{AtomicUsize, Ordering};
 mod config;
 
 fn main() -> Result<()> {
@@ -16,39 +17,23 @@ fn main() -> Result<()> {
         println!("{}", cfg);
     }
 
-    let source_rpc = get_client(
+    let source_client = get_client(
         &cfg.source_ip_addr,
         cfg.source_user.clone().unwrap(),
         cfg.source_passwd.clone().unwrap(),
         ClientType::Source,
     )?;
-    let dest_rpc = get_client(
+    let dest_client = get_client(
         &cfg.dest_ip_addr,
         cfg.dest_user.clone().unwrap(),
         cfg.dest_passwd.clone().unwrap(),
         ClientType::Destination,
     )?;
 
-    print_mempool_sizes(&source_rpc, &dest_rpc, &cfg)?;
+    println!("");
+    print_mempool_sizes(&source_client, &dest_client, &cfg, "(Beginning)\t")?;
 
-    let vec: Vec<TxDepth> = source_rpc
-        .get_raw_mempool_verbose()?
-        .iter()
-        .map(|(tx_ide, mempool_entry)| TxDepth {
-            ancestor_count: mempool_entry.ancestor_count as usize,
-            tx_id: tx_ide.clone(),
-        })
-        .collect();
-
-    //TODO Intenta que no dependa de un valor predeterminado.
-    // let mut vec2: Vec<Vec<Txid>> = std::iter::repeat(vec![]).take(25).collect::<Vec<_>>();
-
-    let mut vec2: Vec<Vec<Txid>> = vec![vec![]; 25];
-
-    for tx_depth in vec {
-        let ancestor_index = tx_depth.ancestor_count - 1;
-        vec2[ancestor_index].push(tx_depth.tx_id);
-    }
+    let vec2 = get_mempool(&source_client, cfg.fast_mode)?;
 
     if cfg.verbose {
         println!("\nTransactions dependencies:\n");
@@ -58,43 +43,66 @@ fn main() -> Result<()> {
         println!("");
     }
 
-    let mut failed_query_txs: usize = 0;
-    let mut failed_sent_txs: usize = 0;
+    let failed_query_txs = AtomicUsize::new(0);
+    let failed_sent_txs = AtomicUsize::new(0);
+    let vec_txs_error: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(vec![]));
 
-    for txid_vec in &vec2 {
-        for txid in txid_vec {
-            let tx_hex = match source_rpc.get_raw_transaction_hex(txid, None) {
-                Ok(tx_hex) => tx_hex,
-                Err(err) => {
-                    failed_query_txs += 1;
-                    if cfg.verbose {
-                        println!("Failed source TxId: {:?} Reason: {:?}", txid, err);
+    for (i, txid_vec) in vec2.iter().enumerate() {
+        let style = ProgressStyle::with_template(
+            "{prefix} [{elapsed_precise}] {wide_bar} {pos:>7}/{len:7} ",
+        )
+        .unwrap();
+        txid_vec
+            .par_iter()
+            .progress_with_style(style)
+            .with_prefix(format!(
+                "Txs depending of {} parents: {}",
+                i,
+                txid_vec.len()
+            ))
+            .for_each(|txid| {
+                match source_client.get_raw_transaction_hex(txid, None) {
+                    Ok(tx_hex) => match dest_client.send_raw_transaction(tx_hex) {
+                        Ok(_) => (),
+                        Err(err) => {
+                            failed_sent_txs.fetch_add(1, Ordering::SeqCst);
+                            if cfg.verbose {
+                                vec_txs_error.lock().unwrap().push(format!(
+                                    "Failed destination TxId: {:?} Reason: {:?}",
+                                    txid, err
+                                ));
+                            }
+                        }
+                    },
+                    Err(err) => {
+                        failed_query_txs.fetch_add(1, Ordering::SeqCst);
+                        if cfg.verbose {
+                            vec_txs_error
+                                .lock()
+                                .unwrap()
+                                .push(format!("Failed source TxId: {:?} Reason: {:?}", txid, err));
+                        }
                     }
-                    continue;
-                }
-            };
-            match dest_rpc.send_raw_transaction(tx_hex) {
-                Ok(_) => (),
-                Err(err) => {
-                    failed_sent_txs += 1;
-                    if cfg.verbose {
-                        println!("Failed destination TxId: {:?} Reason: {:?}", txid, err);
-                    }
-                }
-            }
-        }
+                };
+            });
     }
 
     if cfg.verbose {
-        println!("\n#Failed queried txs: {}", failed_query_txs);
-        println!("#Failed sent txs: {}", failed_sent_txs);
+        vec_txs_error
+            .lock()
+            .unwrap()
+            .iter()
+            .for_each(|err| println!("{}", err));
+
+        println!("\n#Failed queried txs: {:?}", failed_query_txs);
+        println!("#Failed sent txs: {:?}", failed_sent_txs);
 
         println!("\nFailed queried transactions (if any) are because of transactions removed from mempool while executing this program. i.e. RBF txs");
         println!("\nFailed sent transactions (if any) are because of parent transaction removed from mempool while executing this program.\n");
     }
-    print_mempool_sizes(&source_rpc, &dest_rpc, &cfg)?;
+    print_mempool_sizes(&source_client, &dest_client, &cfg, "(End)\t\t")?;
 
-    println!("\nMempool sizes could not be the same at the end because of conflicting transactions between the initial transactions set or new arriving txs while executing this program.");
+    println!("\nNote: Mempool sizes could not be the same at the end because of conflicting transactions between the initial transactions set or new arriving txs while executing this program.");
 
     Ok(())
 }
@@ -103,6 +111,7 @@ fn print_mempool_sizes(
     source_rpc: &Client,
     dest_rpc: &Client,
     cfg: &Config,
+    prefix: &str,
 ) -> Result<(), anyhow::Error> {
     let source_size = source_rpc
         .get_mempool_info()
@@ -113,12 +122,38 @@ fn print_mempool_sizes(
         .with_context(|| format!("Can't connect to {}", cfg.dest_ip_addr))?
         .size;
     println!(
-        "# Transactions in source mempool/destination mempool: {}/{} ({} gap)",
+        "# {} Transactions in source mempool/destination mempool: {}/{} ({} gap)",
+        prefix,
         source_size,
         dest_size,
         source_size - dest_size
     );
     Ok(())
+}
+
+fn get_mempool(source_client: &Client, fast_mode: bool) -> Result<Vec<Vec<Txid>>> {
+    if fast_mode {
+        let vec: Vec<TxDepth> = source_client
+            .get_raw_mempool_verbose()?
+            .iter()
+            .map(|(tx_ide, mempool_entry)| TxDepth {
+                ancestor_count: mempool_entry.ancestor_count as usize,
+                tx_id: tx_ide.clone(),
+            })
+            .collect();
+
+        let mut vec2: Vec<Vec<Txid>> = vec![];
+        for tx_depth in vec {
+            let ancestor_index = tx_depth.ancestor_count - 1;
+            while vec2.len() <= ancestor_index {
+                vec2.push(vec![]);
+            }
+            vec2[ancestor_index].push(tx_depth.tx_id);
+        }
+        return Ok(vec2);
+    }
+
+    Err(anyhow!("Slow mode not implemented, use --fast-mode flag"))
 }
 
 #[derive(Debug)]
