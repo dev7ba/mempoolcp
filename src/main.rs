@@ -1,6 +1,6 @@
 extern crate bitcoincore_rpc;
 extern crate confy;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use bitcoincore_rpc::{bitcoin::Txid, Auth, Client, RpcApi};
 use config::Config;
 use indicatif::ParallelProgressIterator;
@@ -33,7 +33,16 @@ fn main() -> Result<()> {
     println!("");
     print_mempool_sizes(&source_client, &dest_client, &cfg, "(Beginning)\t")?;
 
-    let vec2 = get_mempool(&source_client, cfg.fast_mode)?;
+    let vec = get_mempool_layers(&source_client, cfg.fast_mode)?;
+
+    let mut vec2: Vec<Vec<Txid>> = vec![];
+    for tx_depth in vec {
+        let ancestor_index = tx_depth.ancestor_count - 1;
+        while vec2.len() <= ancestor_index {
+            vec2.push(vec![]);
+        }
+        vec2[ancestor_index].push(tx_depth.tx_id);
+    }
 
     if cfg.verbose {
         println!("\nTransactions dependencies:\n");
@@ -131,7 +140,7 @@ fn print_mempool_sizes(
     Ok(())
 }
 
-fn get_mempool(source_client: &Client, fast_mode: bool) -> Result<Vec<Vec<Txid>>> {
+fn get_mempool_layers(source_client: &Client, fast_mode: bool) -> Result<Vec<TxDepth>> {
     if fast_mode {
         let vec: Vec<TxDepth> = source_client
             .get_raw_mempool_verbose()?
@@ -141,19 +150,22 @@ fn get_mempool(source_client: &Client, fast_mode: bool) -> Result<Vec<Vec<Txid>>
                 tx_id: tx_ide.clone(),
             })
             .collect();
-
-        let mut vec2: Vec<Vec<Txid>> = vec![];
-        for tx_depth in vec {
-            let ancestor_index = tx_depth.ancestor_count - 1;
-            while vec2.len() <= ancestor_index {
-                vec2.push(vec![]);
-            }
-            vec2[ancestor_index].push(tx_depth.tx_id);
-        }
-        return Ok(vec2);
+        return Ok(vec);
+    } else {
+        let vec: Vec<TxDepth> = source_client
+            .get_raw_mempool()?
+            .par_iter()
+            .filter_map(|tx_id| match source_client.get_mempool_entry(tx_id) {
+                Ok(entry) => Some((tx_id, entry)),
+                Err(_) => None, //If tx_id do not exist we don't care
+            })
+            .map(|(tx_id, entry)| TxDepth {
+                ancestor_count: entry.ancestor_count as usize,
+                tx_id: tx_id.clone(),
+            })
+            .collect();
+        return Ok(vec);
     }
-
-    Err(anyhow!("Slow mode not implemented, use --fast-mode flag"))
 }
 
 #[derive(Debug)]
