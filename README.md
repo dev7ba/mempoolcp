@@ -20,7 +20,7 @@ rpcpasswd=mypassword
 
 Mempoolpc takes into account the dependencies between transactions and the fact that you can't send a child tx before a parent tx, or a parent tx before a grandparent tx... because otherwise, the sent transactions could be denied by the receiving node.
 
-Mempoolcp is fast, as fast as rust ``serde`` is. Also, mempoolcp use multithreading when possible.
+Mempoolcp is fast, as fast as rust [serde](https://serde.rs) is. Also, mempoolcp use multithreading when possible.
 
 It has two modes of operation: a faster one using more memory and a normal one using less. The faster uses getrawmempool_verbose (a heavy call that uses a lot of memory if there are many txs). and then getrawtransaction + sendrawTransaction for each transaction. The normal mode uses getrawmempool (without verbose), then getmempoolentry + getrawtransaction + sendrawTransaction for each transaction.
 
