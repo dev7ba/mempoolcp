@@ -135,7 +135,7 @@ fn print_mempool_sizes(
         prefix,
         source_size,
         dest_size,
-        source_size - dest_size
+        (source_size as i64 - dest_size as i64).abs()
     );
     Ok(())
 }
