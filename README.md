@@ -101,13 +101,26 @@ mempoolcp <SOURCE_IP_ADDR> <DEST_IP_ADDR> --fast-mode
 
 A `--verbose` `-v` mode exists for displaying additional data as: effective configuration, transaction dependencies histogram and failed rpc calls
 
+You can see all options via `--help` or `-h` option
+
+```sh
+mempoolcp --help
+```
+
 [TANSTAAGM](https://lists.linuxfoundation.org/pipermail/bitcoin-dev/2020-July/018017.html) - There Ain't No Such Thing As A Global Mempool
 ---------------------------------------------------------
 
-Be aware that it's really difficult to have two mempools with the same transaction set due to different peers connections, conflicting transactions or new txs arriving while executing this command.
+Be aware that it's really difficult to have two mempools with the same transaction set due to different peers connections, conflicting transactions or new txs arriving while executing this command
+
+Compilling instructions
+-----------------------
+
+- Install [rust](https://rustup.rs/) in your system
+- Clone the repository in a directory: `git clone https://github.com/dev7ba/mempoolcp.git`
+- Go into directory and execute `cargo build` or `cargo build --release`. The executable will appear in `/mempoolcp/target/debug` or in `/mempoolcp/target/release`
 
 TODO List
 ---------
 
-- It should also take into account transactions that have arrived at the source node via ZMQ while it was performing the operation. (If a transaction arrives at the started node that doesn't have its parents yet, it will be denied, but if it is queued until the copy operation is finished and then sent, it will be accepted by the destination node).
-- Other types of rpc authorization i.e. cookie auth can be added.
+- It should also take into account transactions that have arrived at the source node via ZMQ while it was performing the operation. (If a transaction arrives at the started node that doesn't have its parents yet, it will be denied, but if it is queued until the copy operation is finished and then sent, it will be accepted by the destination node)
+- Other types of rpc authorization i.e. cookie auth can be added
