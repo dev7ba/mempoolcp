@@ -101,11 +101,12 @@ By default, `mempoolcp` uses a normal mode-memory saving mode. To enable the fas
 ```sh
 mempoolcp <SOURCE_IP_ADDR> <DEST_IP_ADDR> --fast-mode
 ```
+
 ZMQ listening interface is optional, but if you want you enable to obtain better results use ``-z`` or `--zmq-address` in the command line or `zmq_address` in configuration file.
 
 Be aware that as ZMQ subscribers do not need a running server to bind, if you misspell the address, the program will not end since is waiting on a unexisting server direction. Even so, URL sintax is checked.
 
-Do not forget to add ``zmqpubrawtx=tcp://my_pub_ip:my_pub_port`` in destination node `bitcoin.conf` file.
+Do not forget to add ``zmqpubrawtx=tcp://my_pub_ip:my_pub_port`` in source node `bitcoin.conf` file.
 
 A `--verbose` `-v` mode exists for displaying additional data as: effective configuration, transaction dependencies histogram and failed rpc calls
 
