@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::Result;
 use std::fmt;
+use url::Url;
 
 #[derive(Debug, Serialize, Deserialize, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -42,6 +43,9 @@ pub struct Config {
     ///Bitcoin network type. Sets rpc port default.
     #[arg(short = 't',long,default_value_t=Net::MainNet, value_enum)]
     pub net: Net,
+    ///ZMQ Interface to receive tx while working and send all at the end.
+    #[arg(short = 'z', long, requires = "dest")]
+    pub zmq_address: Option<Url>,
     ///Use get_raw_mempool_verbose rpc call which is faster but consumes a lot of mememory.
     #[arg(short, long, default_value_t = false)]
     pub fast_mode: bool,
@@ -74,6 +78,7 @@ Effective configuration:
     Destination user name: ****
     Destination password: ****
     Network: {:?}
+    ZMQ Address: {}
     Fast Mode: {:?}
     Verbose: {:?}
     Config file used: {:?}
@@ -83,6 +88,11 @@ Effective configuration:
             &self.dest_ip_addr,
             &self.dest_port.unwrap(),
             &self.net,
+            if self.zmq_address.is_some() {
+                &self.zmq_address.as_ref().unwrap().as_str()
+            } else {
+                "None"
+            },
             &self.fast_mode,
             &self.verbose,
             &self.config_file_used(),
@@ -102,6 +112,7 @@ impl std::default::Default for Config {
             dest_passwd: None,
             dest_port: None,
             net: Net::MainNet,
+            zmq_address: Url::parse("tcp://127.0.0.1:29000").ok(),
             fast_mode: false,
             use_config: false,
             use_config_path: None,
