@@ -24,9 +24,9 @@ Mempoolcp is fast, as fast as rust [serde](https://serde.rs) is. Also, mempoolcp
 
 It has two modes of operation: a faster one using more memory and a normal one using less. The faster uses getrawmempool_verbose (a heavy call that uses a lot of memory if there are many txs). and then getrawtransaction + sendrawTransaction for each transaction. The normal mode uses getrawmempool (without verbose), then getmempoolentry + getrawtransaction + sendrawTransaction for each transaction.
 
-To reduce the final txs differences between mempools, a ZMQ subscriber listening at source node can be configured to store incoming txs while the program is executing, before program ends, those txs are sent to destination node.
+To reduce the final txs differences between mempools, a ZMQ subscriber listening at source node can be configured to store incoming txs while the program is executing. Before program ends, those txs are sent to destination node.
 
-Configuration is done via the command line or via mempoolcp.conf in a file (to avoid using passwords in the shell). It can actively ask for the user and password if needed.
+Configuration is done via the command line or via config file (to avoid using passwords in the shell). It can actively ask for the user and password if needed.
 
 It has an option to choose network (ports): mainnet, testnet, regtest...
 
@@ -101,8 +101,11 @@ By default, `mempoolcp` uses a normal mode-memory saving mode. To enable the fas
 ```sh
 mempoolcp <SOURCE_IP_ADDR> <DEST_IP_ADDR> --fast-mode
 ```
+ZMQ listening interface is optional, but if you want you enable to obtain better results use ``-z`` or `--zmq-address` in the command line or `zmq_address` in configuration file.
 
-ZMQ listening interface is optional, but if you want you enable to obtain better results use ``-z`` or `--zmq-address` in the command line or `zmq_address` in configuration file. Be aware that as ZMQ subscribers do not need a running server to bind, if you misspell the address, the program will not end since is waiting on a unexisting server direction. Even so, URL sintax is checked.
+Be aware that as ZMQ subscribers do not need a running server to bind, if you misspell the address, the program will not end since is waiting on a unexisting server direction. Even so, URL sintax is checked.
+
+Do not forget to add ``zmqpubrawtx=tcp://my_pub_ip:my_pub_port`` in destination node `bitcoin.conf` file.
 
 A `--verbose` `-v` mode exists for displaying additional data as: effective configuration, transaction dependencies histogram and failed rpc calls
 
