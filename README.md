@@ -9,13 +9,14 @@ Mempoolpc is a command-line program to copy the mempool from one bitcoin node to
 How does it works?
 ------------------
 
-Through bitcoin nodes rpc interface, this program uses `getrawmempool(verbose)`, `getmempoolentry`, `getrawtransaction` and `sendrawtransaction` rpc calls to copy the mempool between nodes. Be aware that both nodes must be configured to use user/password authentication for rpc calls in `bitcoin.conf`:
+Through bitcoin nodes rpc interface, this program uses `getrawmempool(verbose)`, `getmempoolentry`, `getrawtransaction` and `sendrawtransaction` rpc calls to copy the mempool between nodes. Be aware that both nodes must be configured to use user/password or cookie authentication for rpc calls in `bitcoin.conf`:
 
 ```sh
 rpcbind=my_ip_address_here
 rpcallowip=my_ip_address_here
 rpcuser=myusername
 rpcpasswd=mypassword
+rpccookiefile=path_to_cookie_file
 ```
 
 Mempoolpc takes into account the dependencies between transactions and the fact that you can't send a child tx before a parent tx, or a parent tx before a grandparent tx... because otherwise, the sent transactions could be denied by the receiving node.
