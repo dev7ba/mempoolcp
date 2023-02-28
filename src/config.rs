@@ -13,15 +13,21 @@ use url::Url;
 #[command(author, version, about, long_about = None)]
 #[command(propagate_version = true)]
 pub struct Config {
-    ///Source bitcoind node rpc url i.e. http://localhost, 's' for source_url defined in config
+    ///Source bitcoind node rpc url i.e. http://localhost, '.' for source_url defined in config
     ///file
     #[arg(group = "source")]
     pub source_ip_addr: String,
-    ///Destination bitcoind node rpc url i.e. http://localhost, 'd' for dest_url defined in config
+    ///Destination bitcoind node rpc url i.e. http://localhost, '.' for dest_url defined in config
     ///file
     #[arg(group = "dest")]
     pub dest_ip_addr: String,
 
+    ///Source cookie auth path
+    #[arg(short = 's', long)]
+    pub source_cookie_auth_path: Option<PathBuf>,
+    ///Destination cookie auth path
+    #[arg(short = 'd', long)]
+    pub dest_cookie_auth_path: Option<PathBuf>,
     ///User name for source bitcoin node
     #[arg(short = 'n', long, requires = "source")]
     pub source_user: Option<String>,
@@ -65,38 +71,29 @@ pub struct Config {
 
 impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            r#"
-Effective configuration: 
-    Source ip: {}
-    Source port: {:?}
-    Source user name: ****
-    Source password: ****
-    Destination ip: {}
-    Destination port: {:?}
-    Destination user name: ****
-    Destination password: ****
-    Network: {:?}
-    ZMQ Address: {}
-    Fast Mode: {:?}
-    Verbose: {:?}
-    Config file used: {:?}
-            "#,
-            &self.source_ip_addr,
-            &self.source_port.unwrap(),
-            &self.dest_ip_addr,
-            &self.dest_port.unwrap(),
-            &self.net,
-            if self.zmq_address.is_some() {
-                &self.zmq_address.as_ref().unwrap().as_str()
-            } else {
-                "None"
-            },
-            &self.fast_mode,
-            &self.verbose,
-            &self.config_file_used(),
-        )
+        write!(f, "Effective configuration:\n")?;
+        write!(f, "  Source ip: {}\n", &self.source_ip_addr)?;
+        write!(f, "  Source port: {:?}\n", &self.source_port.unwrap())?;
+        write!(f, "  Source user name: ****\n")?;
+        write!(f, "  Source password: ****\n")?;
+        write!(f, "  Destination ip: {}\n", &self.dest_ip_addr)?;
+        write!(f, "  Destination port: {:?}\n", &self.dest_port.unwrap())?;
+        write!(f, "  Destination user name: ****\n")?;
+        write!(f, "  Destination password: ****\n")?;
+        write!(f, "  Source cookie auth path: ")?;
+        print_pathbuffer(f, &self.source_cookie_auth_path)?;
+        write!(f, "  Dest cookie auth path: ")?;
+        print_pathbuffer(f, &self.dest_cookie_auth_path)?;
+        write!(f, "\n  Network: {:?}\n", &self.net)?;
+        write!(f, "  ZMQ Address: ")?;
+        match &self.zmq_address {
+            Some(address) => write!(f, "{:?}", address.as_ref().to_string())?,
+            None => write!(f, "None")?,
+        }
+        write!(f, "\n  Fast Mode: {:?}\n", &self.fast_mode)?;
+        write!(f, "  Verbose: {:?}\n", &self.verbose)?;
+        write!(f, "  Config file used: {:?}\n", &self.config_file_used())?;
+        Ok(())
     }
 }
 
@@ -111,6 +108,8 @@ impl std::default::Default for Config {
             dest_user: None,
             dest_passwd: None,
             dest_port: None,
+            source_cookie_auth_path: None,
+            dest_cookie_auth_path: None,
             net: Net::MainNet,
             zmq_address: Url::parse("tcp://127.0.0.1:29000").ok(),
             fast_mode: false,
@@ -142,18 +141,21 @@ impl Config {
             config.use_config_path = cfg.use_config_path;
             cfg = config;
         }
-        if cfg.source_user.is_none() {
-            cfg.source_user = rpassword::prompt_password("Source bitcoind node user: ").ok();
-        }
-        if cfg.source_passwd.is_none() {
-            cfg.source_passwd = rpassword::prompt_password("Source bitcoind node password: ").ok();
-        }
-        if cfg.dest_user.is_none() {
-            cfg.dest_user = rpassword::prompt_password("Destination bitcoind node user: ").ok();
-        }
-        if cfg.dest_passwd.is_none() {
-            cfg.dest_passwd =
-                rpassword::prompt_password("Destination bitcoind node password: ").ok();
+        if cfg.source_cookie_auth_path.is_none() {
+            if cfg.source_user.is_none() {
+                cfg.source_user = rpassword::prompt_password("Source bitcoind node user: ").ok();
+            }
+            if cfg.source_passwd.is_none() {
+                cfg.source_passwd =
+                    rpassword::prompt_password("Source bitcoind node password: ").ok();
+            }
+            if cfg.dest_user.is_none() {
+                cfg.dest_user = rpassword::prompt_password("Destination bitcoind node user: ").ok();
+            }
+            if cfg.dest_passwd.is_none() {
+                cfg.dest_passwd =
+                    rpassword::prompt_password("Destination bitcoind node password: ").ok();
+            }
         }
         cfg.source_port = Some(cfg.source_port.unwrap_or(cfg.net as u16));
         cfg.dest_port = Some(cfg.dest_port.unwrap_or(cfg.net as u16));
@@ -174,4 +176,14 @@ impl Config {
             "None".to_string()
         }
     }
+}
+fn print_pathbuffer(f: &mut fmt::Formatter, path_buff: &Option<PathBuf>) -> Result<(), fmt::Error> {
+    match path_buff {
+        Some(path) => match path.to_str() {
+            Some(path_str) => write!(f, "{:?}\n", path_str)?,
+            None => write!(f, "None\n")?,
+        },
+        None => write!(f, "None\n")?,
+    };
+    Ok(())
 }

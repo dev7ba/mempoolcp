@@ -8,6 +8,7 @@ use indicatif::ParallelProgressIterator;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use std::path::PathBuf;
 use std::str;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -83,28 +84,46 @@ fn main() -> Result<()> {
 
     print_mempool_sizes(&source_client, &dest_client, &cfg, "(End)\t\t")?;
 
-    println!("\nNote: Mempool sizes could not be the same at the end because of different peers connections, conflicting transactions or transaction arrival timing issues between nodes.");
+    println!("\nNote: Mempool sizes could not be the same at the end because of different peers connections, conflicting transactions or transaction arrival timing issues between nodes (among other causes).");
 
     Ok(())
 }
 
 fn get_clients(cfg: &Config) -> Result<(Client, Client), anyhow::Error> {
-    let source_client = get_client(
-        &cfg.source_ip_addr,
-        cfg.source_user.clone().unwrap(),
-        cfg.source_passwd.clone().unwrap(),
-        ClientType::Source,
-    )?;
-    let dest_client = get_client(
-        &cfg.dest_ip_addr,
-        cfg.dest_user.clone().unwrap(),
-        cfg.dest_passwd.clone().unwrap(),
-        ClientType::Destination,
-    )?;
-    Ok((source_client, dest_client))
+    if cfg.source_cookie_auth_path.is_some() {
+        let source_client = get_client_cookie(
+            &cfg.source_ip_addr,
+            cfg.source_cookie_auth_path.clone().unwrap(),
+            ClientType::Source,
+        )?;
+        let dest_client = get_client_cookie(
+            &cfg.dest_ip_addr,
+            cfg.dest_cookie_auth_path.clone().unwrap(),
+            ClientType::Destination,
+        )?;
+        Ok((source_client, dest_client))
+    } else {
+        let source_client = get_client_user_passw(
+            &cfg.source_ip_addr,
+            cfg.source_user.clone().unwrap(),
+            cfg.source_passwd.clone().unwrap(),
+            ClientType::Source,
+        )?;
+        let dest_client = get_client_user_passw(
+            &cfg.dest_ip_addr,
+            cfg.dest_user.clone().unwrap(),
+            cfg.dest_passwd.clone().unwrap(),
+            ClientType::Destination,
+        )?;
+        Ok((source_client, dest_client))
+    }
 }
 
-fn get_client(
+fn get_client_cookie(ip: &str, path: PathBuf, client_type: ClientType) -> Result<Client> {
+    Client::new(ip, Auth::CookieFile(path))
+        .with_context(|| format!("Can't connect to {:?} bitcoind node: {}", client_type, ip))
+}
+fn get_client_user_passw(
     ip: &str,
     user_name: String,
     passwd: String,
