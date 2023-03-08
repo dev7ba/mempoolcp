@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
 use std::thread;
 use std::thread::JoinHandle;
 
@@ -70,13 +70,22 @@ impl ZmqThread {
         subscriber
             .set_subscribe(b"sequence")
             .expect("Failed subscribing.");
-        // println!("Starting...");
         let stop_th = Arc::new(AtomicBool::new(false));
         let stop = stop_th.clone();
         let (tx, rx) = channel();
+        //Use a barrier, the 'loadmempool' phase should execute after this method to not
+        //loose any tx at the cost of loading/receiving twice some txs.
+        let barrier = Arc::new(Barrier::new(2));
+
+        let barrierc = barrier.clone();
         let thread = thread::spawn(move || {
+            let mut wait = true;
             while !stop_th.load(Ordering::SeqCst) {
                 let msg = subscriber.recv_multipart(0).unwrap();
+                if wait {
+                    barrier.wait();
+                    wait = false;
+                }
                 let topic = str::from_utf8(msg.get(0).unwrap()).expect("Cannot unwrap topic");
                 if topic.ne("sequence") {
                     panic!("ZMQ topic should be 'sequence' but it's: {}", topic);
@@ -95,6 +104,7 @@ impl ZmqThread {
                 }
             }
         });
+        barrierc.wait();
         ZmqThread { rx, stop, thread }
     }
 

@@ -149,6 +149,8 @@ impl Config {
                 cfg.source_passwd =
                     rpassword::prompt_password("Source bitcoind node password: ").ok();
             }
+        }
+        if cfg.dest_cookie_auth_path.is_none() {
             if cfg.dest_user.is_none() {
                 cfg.dest_user = rpassword::prompt_password("Destination bitcoind node user: ").ok();
             }

@@ -90,33 +90,29 @@ fn main() -> Result<()> {
 }
 
 fn get_clients(cfg: &Config) -> Result<(Client, Client), anyhow::Error> {
-    if cfg.source_cookie_auth_path.is_some() {
-        let source_client = get_client_cookie(
-            &cfg.source_ip_addr,
-            cfg.source_cookie_auth_path.clone().unwrap(),
-            ClientType::Source,
-        )?;
-        let dest_client = get_client_cookie(
-            &cfg.dest_ip_addr,
-            cfg.dest_cookie_auth_path.clone().unwrap(),
-            ClientType::Destination,
-        )?;
-        Ok((source_client, dest_client))
+    let source_client = if let Some(path) = &cfg.source_cookie_auth_path {
+        get_client_cookie(&cfg.source_ip_addr, path.clone(), ClientType::Source)?
     } else {
-        let source_client = get_client_user_passw(
+        get_client_user_passw(
             &cfg.source_ip_addr,
-            cfg.source_user.clone().unwrap(),
-            cfg.source_passwd.clone().unwrap(),
+            cfg.source_user.as_ref().unwrap().clone(),
+            cfg.source_passwd.as_ref().unwrap().clone(),
             ClientType::Source,
-        )?;
-        let dest_client = get_client_user_passw(
+        )?
+    };
+
+    let dest_client = if let Some(path) = &cfg.dest_cookie_auth_path {
+        get_client_cookie(&cfg.dest_ip_addr, path.clone(), ClientType::Destination)?
+    } else {
+        get_client_user_passw(
             &cfg.dest_ip_addr,
-            cfg.dest_user.clone().unwrap(),
-            cfg.dest_passwd.clone().unwrap(),
+            cfg.dest_user.as_ref().unwrap().clone(),
+            cfg.dest_passwd.as_ref().unwrap().clone(),
             ClientType::Destination,
-        )?;
-        Ok((source_client, dest_client))
-    }
+        )?
+    };
+
+    Ok((source_client, dest_client))
 }
 
 fn get_client_cookie(ip: &str, path: PathBuf, client_type: ClientType) -> Result<Client> {
