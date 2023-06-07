@@ -116,7 +116,7 @@ impl ZmqThread {
         loop {
             match self.rx.try_iter().next() {
                 Some(tx_id) => {
-                    op(&Txid::from_hash(Hash::from_str(tx_id.as_str()).unwrap()));
+                    op(&Txid::from(Hash::from_str(tx_id.as_str()).unwrap()));
                     counter += 1;
                 }
                 None => {

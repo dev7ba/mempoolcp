@@ -11,9 +11,9 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# bitcoincore-rpc = "0.16.0"
+bitcoincore-rpc = "0.17.0"
 
-bitcoincore-rpc = {path="../rust-bitcoincore-rpc/client"}
+# bitcoincore-rpc = {path="../rust-bitcoincore-rpc/client"}
 serde = { version = "1", features = [ "derive" ] }
 anyhow = "1.0"
 clap = { version = "4.1.4", features = ["derive"] }

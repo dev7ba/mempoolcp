@@ -29,7 +29,7 @@ enum ClientType {
 }
 
 fn main() -> Result<()> {
-    let cfg = Config::load().with_context(|| "Error loading configuration".to_string())?;
+    let cfg = Config::load().context("Error loading configuration")?;
     if cfg.verbose {
         println!("{}", cfg);
     }
@@ -116,8 +116,10 @@ fn get_clients(cfg: &Config) -> Result<(Client, Client), anyhow::Error> {
 }
 
 fn get_client_cookie(ip: &str, path: PathBuf, client_type: ClientType) -> Result<Client> {
-    Client::new(ip, Auth::CookieFile(path))
-        .with_context(|| format!("Can't connect to {:?} bitcoind node: {}", client_type, ip))
+    Client::new(ip, Auth::CookieFile(path)).context(format!(
+        "Can't connect to {:?} bitcoind node: {}",
+        client_type, ip
+    ))
 }
 fn get_client_user_passw(
     ip: &str,
@@ -125,8 +127,10 @@ fn get_client_user_passw(
     passwd: String,
     client_type: ClientType,
 ) -> Result<Client> {
-    Client::new(ip, Auth::UserPass(user_name, passwd))
-        .with_context(|| format!("Can't connect to {:?} bitcoind node: {}", client_type, ip))
+    Client::new(ip, Auth::UserPass(user_name, passwd)).context(format!(
+        "Can't connect to {:?} bitcoind node: {}",
+        client_type, ip
+    ))
 }
 
 fn list_mempool_layers(cfg: &Config, vec2: &Vec<Vec<Txid>>) {
@@ -308,11 +312,11 @@ fn print_mempool_sizes(
 ) -> Result<(), anyhow::Error> {
     let source_size = source_rpc
         .get_mempool_info()
-        .with_context(|| format!("Can't connect to {}", cfg.source_ip_addr))?
+        .context(format!("Can't connect to {}", cfg.source_ip_addr))?
         .size;
     let dest_size = dest_rpc
         .get_mempool_info()
-        .with_context(|| format!("Can't connect to {}", cfg.dest_ip_addr))?
+        .context(format!("Can't connect to {}", cfg.dest_ip_addr))?
         .size;
     println!(
         "\n# {} Transactions in source mempool/destination mempool: {}/{} ({} gap)",
