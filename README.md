@@ -1,6 +1,8 @@
 Mempoolcp
 =========
 
+NOTE: This project may be deprecated by bitcoind RPC commands `savemempool` and `importmempool`.
+
 What is mempoolcp?
 ------------------
 
@@ -113,7 +115,7 @@ ZMQ listening interface is optional, but if you want you enable to obtain better
 
 Be aware that as ZMQ subscribers do not need a running server to bind, if you misspell the address, the program will not end since is waiting on a unexisting server direction. Even so, URL sintax is checked.
 
-Do not forget to add ``zmqpubrawtx=tcp://my_pub_ip:my_pub_port`` in source node `bitcoin.conf` file.
+Do not forget to add ``zmqpubsequence=tcp://my_pub_ip:my_pub_port`` in source node `bitcoin.conf` file.
 
 A `--verbose` `-v` mode exists for displaying additional data as: effective configuration, transaction dependencies histogram and failed rpc calls
 
